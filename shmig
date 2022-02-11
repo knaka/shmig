@@ -121,7 +121,7 @@ Where options are:
       shows version information
 
 Actions are:
-  create <name>
+  create
       create migration file in MIGRATIONS directory
 
   migrate|up [steps=COUNT] [[till=]TILL]
@@ -233,8 +233,7 @@ mysql_check(){
 }
 
 mysql_previous_versions(){
-  local fields="lpad(version, 10, '0') as version"
-  __generic_previous_versions '`' "$1" "$fields"
+  __generic_previous_versions '`' "$1"
 }
 
 mysql_bump_version_sql(){
@@ -298,8 +297,7 @@ postgresql_check(){
 }
 
 postgresql_previous_versions(){
-   local fields="to_char(version,'0000000000') as version"
-   __generic_previous_versions '"' "$1" "$fields"
+   __generic_previous_versions '"' "$1"
 }
 
 postgresql_bump_version_sql(){
@@ -357,8 +355,7 @@ sqlite3_check(){
 }
 
 sqlite3_previous_versions(){
-  local fields="substr('0000000000' || version, -10, 10) as version"
-  __generic_previous_versions '`' "$1" "$fields"
+  __generic_previous_versions '`' "$1"
 }
 
 sqlite3_bump_version_sql(){
@@ -401,7 +398,7 @@ find_migrations(){
 
 # extract version from migration file name
 migration_version(){
-  basename "$1" | cut -d - -f 1
+  basename "$1" | cut -d . -f 1
 }
 
 # get migration name or title.
@@ -431,7 +428,7 @@ migration_section(){
   local fname="$1"
   local since="^-- $(sed_quote "$2")\$"
   local till="^-- $(sed_quote "$3")\$"
-  local tmpfile="${TMPDIR:-/tmp/}shmig-migration-section.$$.${RANDOM}.sql"
+  local tmpfile="${TMPDIR:-/tmp}/shmig-migration-section.$$.${RANDOM}.sql"
   local result="0"
 
   sed -n -e '/'"$since"'/,/'"$till"'/p' "$fname"\
@@ -451,20 +448,14 @@ migration_section(){
 
 # generate migration
 create(){
-  [[ $# -eq 1 ]] || die "${LRED}create takes exactly one argument${CLEAR}: $ME create <name>"
-  local name="$1"
+  [[ $# -eq 0 ]] || die "${LRED}create takes no argument${CLEAR}: $ME create"
 
-  echo "$name" | grep -E -qi '^[a-z0-9_. -]+$' || die "${LRED}invalid migration name:${CLEAR} $name"
-
-  # As of 4/28/2014, seconds since epoch has ten digits.
-  find_migrations -name "*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-$name.sql" \
-    | grep -q "\-$name\.sql" \
-    && die "${LRED}migration '${LYELLOW}$name${LRED}' already exists${CLEAR}"
-
-  local fname="$MIGRATIONS/$(date +%s)-$(echo "$name" | tr \  _).sql"
+  local last_one=$(find_migrations -name "*.sql" | xargs basename | sort -n | tail -n 1)
+  local last_number=$(echo "$last_one" | cut -d . -f 1)
+  local fname="$MIGRATIONS/$(($last_number+1)).sql"
 
   cat > "$fname" << EOF
--- Migration: $name
+-- Migration:
 -- Created at: $(date +"%Y-%m-%d %H:%M:%S")
 -- $UP_MARK
 
@@ -494,7 +485,7 @@ pending_migrations(){
   last="${last:-0}"
 
   find_migrations | sort -t- -k1nr | awk -v "limit=${1:--1}" -v "last=$last" -F/ \
-    'limit&&$NF~/^[0-9]+-.*\.sql$/&&int($NF)>last{
+    'limit&&$NF~/^[0-9]+\.sql$/&&int($NF)>last{
       print;
       --limit;
       if(!limit)
@@ -511,7 +502,7 @@ previous_migrations(){
 
   while read -r version
   do
-    local migration=$(find_migrations -name "$version-*.sql")
+    local migration=$(find_migrations -name "$version.sql")
     [[ -z $migration ]] && die "${LRED}migration version ${LYELLOW}$version ${LRED}can't be found${CLEAR}"
     echo "$migration"
   done < <("${TYPE}_previous_versions" "$1")
@@ -597,7 +588,7 @@ migrate(){
       esac
     fi
 
-    local error_tmpfile="${TMPDIR:-/tmp/}shmig-migration-error.${RANDOM}.tmp"
+    local error_tmpfile="${TMPDIR:-/tmp}/shmig-migration-error.${RANDOM}.tmp"
     # pipe section from migration and version change SQL into CLI client of specified type
     (
       echo -en "$ME: $message '${LMAGENTA}${name}${CLEAR}'\t(${LBLUE}$version${LBLUE}${CLEAR})... " >&2

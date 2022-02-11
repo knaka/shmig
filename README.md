@@ -1,21 +1,10 @@
-SHMIG [![Build Status](https://travis-ci.org/mbucc/shmig.svg?branch=master)](https://travis-ci.org/mbucc/shmig)
+SHMIG
 =====
 
 A database migration tool written in BASH consisting of just one
-file - [`shmig`](https://github.com/naquad/shmig/blob/master/shmig).
+file.
 
-Automated Tests
------
-
-| Shell | DB  | Result |
-| ----- | --- | ------ |
-| /bin/bash | sqlite3 | ![](https://raw.githubusercontent.com/mbucc/shmig_test/master/badges/alpine-3.8-bash-sqlite3.png) |
-| /bin/bash | mysql:5.7 | ![](https://raw.githubusercontent.com/mbucc/shmig_test/master/badges/alpine-3.8-bash-mysql-5.7.png) |
-| /bin/bash | postgres:9.6 | ![](https://raw.githubusercontent.com/mbucc/shmig_test/master/badges/alpine-3.8-bash-postgres-9.6.png) |
-
-See https://github.com/mbucc/shmig_test.
-
-
+This is a forked version of original [shmig](https://github.com/mbucc/shmig). This version forces migration files in sequential filenames (1.sql, 2.sql ...) like [Evolutions](https://www.playframework.com/documentation/2.8.x/Evolutions) database migration tool.
 
 Quick Start
 ----------
@@ -24,10 +13,10 @@ Quick Start
   $ make install
   $ cd $HOME
   $ mkdir migrations
-  $ shmig -t sqlite3 -d test.db create mytable
-  generated ./migrations/1470490964-mytable.sql
-  $ cat ./migrations/1470490964-mytable.sql
-  -- Migration: mytable
+  $ shmig -t sqlite3 -d test.db create
+  generated ./migrations/1.sql
+  $ cat ./migrations/1.sql
+  -- Migration:
   -- Created at: 2016-08-06 09:42:44
   -- ====  UP  ====
 
@@ -129,11 +118,9 @@ For detailed information see `shmig.conf.example` and `shmig -h`.
 Migrations
 ----------
 
-Migrations are SQL files whose name starts with "`<UNIX TIMESTAMP>-`"
-and end with ".sql".  The order that new migrations are applied is
-[determined](https://github.com/naquad/shmig/blob/master/shmig#L481)
-by the seconds-since-epoch time stamp in the filename, with the
-oldest migration going first.
+Migrations are SQL files whose name is "<SEQUENTIAL NUMBER>.sql".
+The order that new migrations are applied is determined
+by the order of the number, with the oldest migration going first.
 
 Each migration contains two special markers: `-- ====  UP ====`
 that marks start of section that will be executed when migration
@@ -169,49 +156,6 @@ statements. They're required because you're basically typing that
 into your database CLI client.
 
 SHMIG can generate skeleton migration for you, see `create` action.
-
-Migrations with test data
-----------
-One nice feature of Liquibase is contexts, which are used to
-implement different behavior based on environment; for example,
-in a development environment you can insert test data.
-
-`shmig` can support this with symbolic links.  For example, say
-your production migrations are in `prod` and test data in `test`:
-
-```
-.
-└── migrations
-    ├── prod
-    │   └── 1485643154-create_table.sql
-    └── test
-        └── 1485648520-testdata.sql
-```
-
-To create a test environment context, link the prod SQL in test directory:
-
-```
-$ cd migrations/test/
-$ ln -s ../prod/1485643154-create_table.sql
-```
-
-
-```
-.
-└── migrations
-    ├── prod
-    │   └── 1485643154-create_table.sql
-    └── test
-        ├── 1485643154-create_table.sql -> ../prod/1485643154-create_table.sql
-        └── 1485648520-testdata.sql
-```
-
-When applying migrations to test, point shmig to the test directory either
-via the command line or using the local config override file.
-
-Since migrations are applied in order of epoch seconds in the file name,
-this works.
-
 
 Current state
 -------------
